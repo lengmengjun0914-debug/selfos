@@ -181,12 +181,61 @@
     </style>
 </head>
 <body>
+    <!-- Login Page -->
+    <div id="login-page" class="page active">
+        <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 80vh; padding: 20px;">
+            <div style="text-align: center; margin-bottom: 40px;">
+                <div style="font-size: 48px; margin-bottom: 12px;">🧠</div>
+                <div class="logo" style="font-size: 32px;">SelfOS</div>
+                <div style="color: var(--text-secondary); margin-top: 8px;">个人自我管理</div>
+            </div>
+
+            <div id="login-form" class="card" style="width: 100%; max-width: 320px;">
+                <div class="form-group">
+                    <label class="form-label">用户名</label>
+                    <input type="text" id="login-username" class="form-input" placeholder="输入用户名">
+                </div>
+                <div class="form-group">
+                    <label class="form-label">密码</label>
+                    <input type="password" id="login-password" class="form-input" placeholder="输入密码">
+                </div>
+                <button class="primary-btn" onclick="doLogin()">登录</button>
+                <button class="secondary-btn" style="margin-top: 10px;" onclick="showRegister()">注册新账号</button>
+            </div>
+
+            <div id="register-form" class="card" style="width: 100%; max-width: 320px; display: none;">
+                <div class="form-group">
+                    <label class="form-label">用户名</label>
+                    <input type="text" id="reg-username" class="form-input" placeholder="设置用户名">
+                </div>
+                <div class="form-group">
+                    <label class="form-label">密码</label>
+                    <input type="password" id="reg-password" class="form-input" placeholder="设置密码（至少6位）">
+                </div>
+                <div class="form-group">
+                    <label class="form-label">确认密码</label>
+                    <input type="password" id="reg-password-confirm" class="form-input" placeholder="再次输入密码">
+                </div>
+                <button class="primary-btn" onclick="doRegister()">注册</button>
+                <button class="secondary-btn" style="margin-top: 10px;" onclick="showLogin()">返回登录</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Main App (hidden until login) -->
+    <div id="main-app" style="display: none;">
     <!-- Header -->
     <div class="header">
         <div class="logo">SelfOS</div>
-        <div class="ai-btn" onclick="openAIChat()">
-            <svg viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/></svg>
-            AI 助手
+        <div style="display: flex; align-items: center; gap: 10px;">
+            <span id="current-user-name" style="font-size: 12px; color: var(--text-secondary);"></span>
+            <div class="ai-btn" onclick="openAIChat()">
+                <svg viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/></svg>
+                AI 助手
+            </div>
+            <div class="ai-btn" style="padding: 8px;" onclick="doLogout()" title="退出登录">
+                <svg viewBox="0 0 24 24" style="width: 16px; height: 16px; fill: var(--text-secondary);"><path d="M17 7l-1.41 1.41L18.17 11H8v2h10.17l-2.58 2.58L17 17l5-5zM4 5h8V3H4c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h8v-2H4V5z"/></svg>
+            </div>
         </div>
     </div>
 
@@ -374,6 +423,7 @@
             <span class="tab-label">消费</span>
         </div>
     </div>
+    </div>
 
     <!-- Sleep Modal -->
     <div id="sleep-modal" class="modal-overlay">
@@ -510,22 +560,153 @@
         const MINIMAX_API_KEY = 'sk-cp-EoXA-KKIZrEjAPyKbGPwOgn3bLlHVdlowvghYC90vb3cgg34VXU8S_BsFLu5Nd72NWPmRC275z4D7GziGM_oTOTaXEK47H64fyBC6vZIz0Qa3h1v1W0Oej4';
         const MONTHLY_BUDGET = 2000;
 
-        // ========== Storage ==========
+        // ========== Auth Storage ==========
         const KEYS = {
-            SLEEP: 'selfos_sleep',
-            SMOKING: 'selfos_smoking',
-            EXPENSES: 'selfos_expenses'
+            USERS: 'selfos_users',
+            CURRENT_USER: 'selfos_current_user'
         };
 
-        const getData = (key, defaultVal = []) => JSON.parse(localStorage.getItem(key) || JSON.stringify(defaultVal));
-        const setData = (key, val) => localStorage.setItem(key, JSON.stringify(val));
+        let currentUser = null;
+
+        // ========== User Auth Functions ==========
+        function getUsers() {
+            return JSON.parse(localStorage.getItem(KEYS.USERS) || '[]');
+        }
+
+        function saveUsers(users) {
+            localStorage.setItem(KEYS.USERS, JSON.stringify(users));
+        }
+
+        function getCurrentUser() {
+            return JSON.parse(localStorage.getItem(KEYS.CURRENT_USER) || 'null');
+        }
+
+        function setCurrentUser(user) {
+            if (user) {
+                localStorage.setItem(KEYS.CURRENT_USER, JSON.stringify(user));
+            } else {
+                localStorage.removeItem(KEYS.CURRENT_USER);
+            }
+            currentUser = user;
+        }
+
+        function getUserDataKey(type) {
+            return `selfos_${currentUser.id}_${type}`;
+        }
+
+        const getData = (type, defaultVal = []) => {
+            if (!currentUser) return defaultVal;
+            const key = getUserDataKey(type);
+            return JSON.parse(localStorage.getItem(key) || JSON.stringify(defaultVal));
+        };
+
+        const setData = (type, val) => {
+            if (!currentUser) return;
+            const key = getUserDataKey(type);
+            localStorage.setItem(key, JSON.stringify(val));
+        };
+
         const genId = () => Date.now().toString(36) + Math.random().toString(36).substr(2);
 
-        // ========== Init ==========
-        document.addEventListener('DOMContentLoaded', () => {
+        // ========== Login/Register UI ==========
+        function showRegister() {
+            document.getElementById('login-form').style.display = 'none';
+            document.getElementById('register-form').style.display = 'block';
+        }
+
+        function showLogin() {
+            document.getElementById('login-form').style.display = 'block';
+            document.getElementById('register-form').style.display = 'none';
+        }
+
+        function doRegister() {
+            const username = document.getElementById('reg-username').value.trim();
+            const password = document.getElementById('reg-password').value;
+            const passwordConfirm = document.getElementById('reg-password-confirm').value;
+
+            if (!username || username.length < 2) {
+                showToast('用户名至少2个字符', 'error');
+                return;
+            }
+            if (password.length < 6) {
+                showToast('密码至少6位', 'error');
+                return;
+            }
+            if (password !== passwordConfirm) {
+                showToast('两次密码不一致', 'error');
+                return;
+            }
+
+            const users = getUsers();
+            if (users.find(u => u.username === username)) {
+                showToast('用户名已存在', 'error');
+                return;
+            }
+
+            const newUser = {
+                id: genId(),
+                username: username,
+                password: password,
+                createdAt: new Date().toISOString()
+            };
+            users.push(newUser);
+            saveUsers(users);
+
+            showToast('注册成功，请登录', 'success');
+            showLogin();
+            document.getElementById('login-username').value = username;
+            document.getElementById('login-password').value = '';
+        }
+
+        function doLogin() {
+            const username = document.getElementById('login-username').value.trim();
+            const password = document.getElementById('login-password').value;
+
+            if (!username || !password) {
+                showToast('请输入用户名和密码', 'error');
+                return;
+            }
+
+            const users = getUsers();
+            const user = users.find(u => u.username === username && u.password === password);
+
+            if (!user) {
+                showToast('用户名或密码错误', 'error');
+                return;
+            }
+
+            setCurrentUser(user);
+            showMainApp();
+            showToast('欢迎回来，' + user.username, 'success');
+        }
+
+        function doLogout() {
+            if (!confirm('确定要退出登录吗？')) return;
+            setCurrentUser(null);
+            document.getElementById('login-username').value = '';
+            document.getElementById('login-password').value = '';
+            document.getElementById('main-app').style.display = 'none';
+            document.getElementById('login-page').style.display = 'block';
+            document.getElementById('login-page').classList.add('active');
+        }
+
+        function showMainApp() {
+            document.getElementById('login-page').style.display = 'none';
+            document.getElementById('login-page').classList.remove('active');
+            document.getElementById('main-app').style.display = 'block';
+            document.getElementById('current-user-name').textContent = currentUser.username;
             document.getElementById('sleep-date').value = new Date().toISOString().split('T')[0];
             document.getElementById('smoking-date').value = new Date().toISOString().split('T')[0];
             updateUI();
+        }
+
+        // ========== Init ==========
+        document.addEventListener('DOMContentLoaded', () => {
+            const user = getCurrentUser();
+            if (user) {
+                currentUser = user;
+                showMainApp();
+            }
         });
 
         // ========== Tab Navigation ==========
@@ -549,9 +730,9 @@
         }
 
         function updateHome() {
-            const sleeps = getData(KEYS.SLEEP);
-            const smokings = getData(KEYS.SMOKING);
-            const expenses = getData(KEYS.EXPENSES);
+            const sleeps = getData('sleep');
+            const smokings = getData('smoking');
+            const expenses = getData('expenses');
             const today = new Date().toDateString();
 
             const todaySleep = sleeps.find(s => new Date(s.date).toDateString() === today);
@@ -577,7 +758,7 @@
         }
 
         function updateSleep() {
-            const sleeps = getData(KEYS.SLEEP);
+            const sleeps = getData('sleep');
             const today = new Date().toDateString();
             const todaySleep = sleeps.find(s => new Date(s.date).toDateString() === today);
 
@@ -598,7 +779,7 @@
         }
 
         function updateSmoking() {
-            const smokings = getData(KEYS.SMOKING);
+            const smokings = getData('smoking');
             const today = new Date().toDateString();
             const weekStart = getWeekStart();
             const monthStart = getMonthStart();
@@ -616,7 +797,7 @@
         }
 
         function updateExpense() {
-            const expenses = getData(KEYS.EXPENSES);
+            const expenses = getData('expenses');
             const today = new Date().toDateString();
             const weekStart = getWeekStart();
             const monthStart = getMonthStart();
@@ -724,7 +905,7 @@
         // ========== Records ==========
         function renderSleepRecords() {
             const container = document.getElementById('sleep-records');
-            const sleeps = getData(KEYS.SLEEP).slice(-10).reverse();
+            const sleeps = getData('sleep').slice(-10).reverse();
 
             if (sleeps.length === 0) {
                 container.innerHTML = '<div class="empty-state"><div class="empty-icon">😴</div><p class="empty-text">暂无作息记录</p></div>';
@@ -753,7 +934,7 @@
 
         function renderSmokingRecords() {
             const container = document.getElementById('smoking-records');
-            const smokings = getData(KEYS.SMOKING).slice(-10).reverse();
+            const smokings = getData('smoking').slice(-10).reverse();
 
             if (smokings.length === 0) {
                 container.innerHTML = '<div class="empty-state"><div class="empty-icon">🚬</div><p class="empty-text">暂无吸烟记录</p></div>';
@@ -807,7 +988,7 @@
 
         function renderExpenseRecords() {
             const container = document.getElementById('expense-records');
-            const expenses = getData(KEYS.EXPENSES).slice(-10).reverse();
+            const expenses = getData('expenses').slice(-10).reverse();
 
             if (expenses.length === 0) {
                 container.innerHTML = '<div class="empty-state"><div class="empty-icon">💰</div><p class="empty-text">暂无消费记录</p></div>';
@@ -856,7 +1037,7 @@
         }
 
         function editSleep(id) {
-            const sleeps = getData(KEYS.SLEEP);
+            const sleeps = getData('sleep');
             const sleep = sleeps.find(s => s.id === id);
             if (!sleep) return;
 
@@ -871,7 +1052,7 @@
         }
 
         function saveSleep() {
-            const sleeps = getData(KEYS.SLEEP);
+            const sleeps = getData('sleep');
             const sleepData = {
                 id: editingSleepId || genId(),
                 date: document.getElementById('sleep-date').value,
@@ -887,7 +1068,7 @@
                 sleeps.push(sleepData);
             }
 
-            setData(KEYS.SLEEP, sleeps);
+            setData('sleep', sleeps);
             closeModal('sleep-modal');
             showToast(editingSleepId ? '作息已更新' : '作息已保存', 'success');
             updateUI();
@@ -895,8 +1076,8 @@
 
         function deleteSleep() {
             if (!editingSleepId) return;
-            const sleeps = getData(KEYS.SLEEP).filter(s => s.id !== editingSleepId);
-            setData(KEYS.SLEEP, sleeps);
+            const sleeps = getData('sleep').filter(s => s.id !== editingSleepId);
+            setData('sleep', sleeps);
             closeModal('sleep-modal');
             showToast('作息已删除', 'success');
             editingSleepId = null;
@@ -905,8 +1086,8 @@
 
         function confirmDeleteSleep(id) {
             if (confirm('确定要删除这条作息记录吗？')) {
-                const sleeps = getData(KEYS.SLEEP).filter(s => s.id !== id);
-                setData(KEYS.SLEEP, sleeps);
+                const sleeps = getData('sleep').filter(s => s.id !== id);
+                setData('sleep', sleeps);
                 showToast('作息已删除', 'success');
                 updateUI();
             }
@@ -927,7 +1108,7 @@
         }
 
         function editSmoking(id) {
-            const smokings = getData(KEYS.SMOKING);
+            const smokings = getData('smoking');
             const smoking = smokings.find(s => s.id === id);
             if (!smoking) return;
 
@@ -942,7 +1123,7 @@
         }
 
         function saveSmoking() {
-            const smokings = getData(KEYS.SMOKING);
+            const smokings = getData('smoking');
             const smokingData = {
                 id: editingSmokingId || genId(),
                 date: document.getElementById('smoking-date').value,
@@ -957,7 +1138,7 @@
                 smokings.push(smokingData);
             }
 
-            setData(KEYS.SMOKING, smokings);
+            setData('smoking', smokings);
             closeModal('smoking-modal');
             showToast(editingSmokingId ? '吸烟记录已更新' : '吸烟记录已保存', 'success');
             updateUI();
@@ -965,8 +1146,8 @@
 
         function deleteSmoking() {
             if (!editingSmokingId) return;
-            const smokings = getData(KEYS.SMOKING).filter(s => s.id !== editingSmokingId);
-            setData(KEYS.SMOKING, smokings);
+            const smokings = getData('smoking').filter(s => s.id !== editingSmokingId);
+            setData('smoking', smokings);
             closeModal('smoking-modal');
             showToast('吸烟记录已删除', 'success');
             editingSmokingId = null;
@@ -975,8 +1156,8 @@
 
         function confirmDeleteSmoking(id) {
             if (confirm('确定要删除这条吸烟记录吗？')) {
-                const smokings = getData(KEYS.SMOKING).filter(s => s.id !== id);
-                setData(KEYS.SMOKING, smokings);
+                const smokings = getData('smoking').filter(s => s.id !== id);
+                setData('smoking', smokings);
                 showToast('吸烟记录已删除', 'success');
                 updateUI();
             }
@@ -996,7 +1177,7 @@
         }
 
         function editExpense(id) {
-            const expenses = getData(KEYS.EXPENSES);
+            const expenses = getData('expenses');
             const expense = expenses.find(e => e.id === id);
             if (!expense) return;
 
@@ -1016,7 +1197,7 @@
                 return;
             }
 
-            const expenses = getData(KEYS.EXPENSES);
+            const expenses = getData('expenses');
             const expenseData = {
                 id: editingExpenseId || genId(),
                 date: new Date().toISOString(),
@@ -1032,7 +1213,7 @@
                 expenses.push(expenseData);
             }
 
-            setData(KEYS.EXPENSES, expenses);
+            setData('expenses', expenses);
             closeModal('expense-modal');
             showToast(editingExpenseId ? '消费已更新' : '消费已记录', 'success');
             updateUI();
@@ -1040,8 +1221,8 @@
 
         function deleteExpense() {
             if (!editingExpenseId) return;
-            const expenses = getData(KEYS.EXPENSES).filter(e => e.id !== editingExpenseId);
-            setData(KEYS.EXPENSES, expenses);
+            const expenses = getData('expenses').filter(e => e.id !== editingExpenseId);
+            setData('expenses', expenses);
             closeModal('expense-modal');
             showToast('消费已删除', 'success');
             editingExpenseId = null;
@@ -1050,8 +1231,8 @@
 
         function confirmDeleteExpense(id) {
             if (confirm('确定要删除这条消费记录吗？')) {
-                const expenses = getData(KEYS.EXPENSES).filter(e => e.id !== id);
-                setData(KEYS.EXPENSES, expenses);
+                const expenses = getData('expenses').filter(e => e.id !== id);
+                setData('expenses', expenses);
                 showToast('消费已删除', 'success');
                 updateUI();
             }
@@ -1091,9 +1272,9 @@
         }
 
         async function callMinimax(message) {
-            const sleeps = getData(KEYS.SLEEP);
-            const smokings = getData(KEYS.SMOKING);
-            const expenses = getData(KEYS.EXPENSES);
+            const sleeps = getData('sleep');
+            const smokings = getData('smoking');
+            const expenses = getData('expenses');
 
             const now = new Date();
             const monthStart = getMonthStart();
